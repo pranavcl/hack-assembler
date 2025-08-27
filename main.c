@@ -1,26 +1,49 @@
 #include<stdio.h>
+#include<time.h>
 #include "helpers.h"
 #include "mappings.h"
-
-#define MAX_LINE_LENGTH 100
-#define MAX_FILENAME_LENGTH 256
+#include "resolver.h"
+#include "constants.h"
 
 FILE* input;
 FILE* output;
 
+int varcount=16;
+int lines=0;
+
 void handle_instr(char* instr, int n) {
-	int i;
+	int i, j, match;
 
 	// A instructions
 	if(instr[0] == '@') {
+		if(instr[1] < '0' || instr[1] > '9') {
+			for(i=0; i < table_len; i++) {
+				// printf("symbol_table[%d] = {%s,%d}\n", i, symbol_table[i].name, symbol_table[i].address);
+				match=1;
+				for(j=1;instr[j] && match;j++) {
+					if(instr[j] != symbol_table[i].name[j-1]) match = 0;
+					if(!match) break;
+				}
+
+				if(!match) continue;
+				sprintf(instr, "@%d", symbol_table[i].address);
+				break;
+			}
+			if(!match) {
+				symbol sym;
+				for(i=1;instr[i];i++) sym.name[i-1]=instr[i];
+				sym.address = varcount++;
+				symbol_table[table_len++] = sym;
+				return handle_instr(instr, len(instr));
+			}
+		}
+
 		// Get the numeric string of the instruction
 		char nstr[10];
 		for(i = 1; instr[i]; i++) {
 			nstr[i-1] = instr[i];
 		}
 		nstr[i-1] = '\0';
-
-		// TODO: Handle symbols here
 
 		// Convert numeric string to int
 		int nint = 0, length = len(nstr);
@@ -37,7 +60,6 @@ void handle_instr(char* instr, int n) {
 
 	// Labels
 	else if(instr[0] == '(') {
-		printf("Label\n");
 		return;
 	}
 
@@ -92,16 +114,17 @@ void handle_instr(char* instr, int n) {
 void parse() {
 	char line[MAX_LINE_LENGTH];
 	int i, j, n;
-	char ch, ch1;
+	char ch;
 
 	while(1) {
+		cpystring(line, "");
 		// Fill the line array with every character except whitespaces
-		for(i=0; (ch = fgetc(input)) != '\n' && i < MAX_LINE_LENGTH; i++) {
+		for(i=0; (ch = fgetc(input)) != '\n' && i < MAX_LINE_LENGTH;) {
 			if(ch == EOF) {
 				break;
 			}
 			if(ch != ' ' && ch != '\t') {
-				line[i] = ch;
+				line[i++] = ch;
 			}
 		}
 		line[i] = '\0';
@@ -112,6 +135,8 @@ void parse() {
 				line[j] = '\0';
 			}
 		}
+
+		lines++;
 
 		// Handle the instruction
 		n = len(line);
@@ -126,6 +151,8 @@ void parse() {
 }
 
 int main(int argc, char** argv) {
+	clock_t start = clock();
+
 	int i;
 
 	if(argc < 2) {
@@ -167,9 +194,15 @@ int main(int argc, char** argv) {
 
 	output = fopen(output_fname, "w");
 
+	resolve_sym(input);
+	fseek(input, 0, SEEK_SET);
 	parse();
 	fclose(input);
 	fclose(output);
+	
+	clock_t end = clock();
+    double ms = (double)(end - start) * 1000.0 / CLOCKS_PER_SEC;
+    printf("Assembled %d lines in %.2f ms\n", lines, ms);
 
 	return(0);
 }
