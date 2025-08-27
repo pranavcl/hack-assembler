@@ -7,7 +7,7 @@ This is as an assembler for the HACK programming language written in C. Part of 
 **Coded in plain C with absolutely NO dependencies.**
 Blazingly fast assembly. Compile using:
 
-```c
+```bash
 cc main.c helpers.c resolver.c mappings.c -o hack-assembler.exe
 ```
 
